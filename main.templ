@@ -1,0 +1,95 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
+templ page() {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<title>Page</title>
+			<script src="/dist/index.js"></script>
+			<link rel="stylesheet" href="https://cdn.datatables.net/2.1.3/css/dataTables.dataTables.min.css"/>
+		</head>
+		<body>
+			<table id="table123"></table>
+			<script>
+				index.initializeDataTable("#table123");
+      </script>
+		</body>
+	</html>
+}
+
+func main() {
+	http.Handle("/dist/", http.StripPrefix("/dist/", http.FileServer(http.Dir("dist"))))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		templ.Handler(page()).ServeHTTP(w, r)
+	})
+	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
+		data, err := getData()
+		if err != nil {
+			//TODO: Log the error.
+			http.Error(w, "failed to get data", http.StatusInternalServerError)
+		}
+		resp := DataTablesResponse{
+			Draw:            1,
+			RecordsTotal:    len(data),
+			RecordsFiltered: len(data),
+			Data:            data,
+		}
+		json.NewEncoder(w).Encode(resp)
+	})
+	fmt.Println("Listening on localhost:8080")
+	http.ListenAndServe("localhost:8080", nil)
+}
+
+func getData() (data []Row, err error) {
+	data = []Row{
+		{
+			RowID:     "row_1",
+			RowData:   RowData{PKey: 1},
+			Name:      "Tiger Nixon",
+			Position:  "System Architect",
+			Office:    "Edinburgh",
+			Extn:      "5421",
+			StartDate: "2011-04-25",
+			Salary:    "$320,800",
+		},
+		{
+			RowID:     "row_2",
+			RowData:   RowData{PKey: 2},
+			Name:      "Garrett Winters",
+			Position:  "Accountant",
+			Office:    "Tokyo",
+			Extn:      "8422",
+			StartDate: "2011-07-25",
+			Salary:    "$170,750",
+		},
+	}
+	return data, nil
+}
+
+type DataTablesResponse struct {
+	Draw            int   `json:"draw"`
+	RecordsTotal    int   `json:"recordsTotal"`
+	RecordsFiltered int   `json:"recordsFiltered"`
+	Data            []Row `json:"data"`
+}
+
+type RowData struct {
+	PKey int `json:"pkey"`
+}
+
+type Row struct {
+	RowID     string  `json:"DT_RowId"`
+	RowData   RowData `json:"DT_RowData"`
+	Name      string  `json:"name"`
+	Position  string  `json:"position"`
+	Office    string  `json:"office"`
+	Extn      string  `json:"extn"`
+	StartDate string  `json:"startDate"`
+	Salary    string  `json:"salary"`
+}
